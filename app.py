@@ -1,67 +1,17 @@
 import streamlit as st
-import re
 from datetime import datetime
 import pandas as pd
 import os
+
+from guardrails.toxicity import detect_toxicity
+from guardrails.pii import detect_pii
+from guardrails.prompt_injection import detect_prompt_injection
+from guardrails.output_guardrail import detect_harmful_output
 
 st.set_page_config(page_title="AI Guardrail Chatbot", layout="centered")
 
 LOG_FILE = "guardrail_logs.csv"
 
-toxic_words = [
-    "hate", "kill", "stupid", "idiot", "dumb", "hurt", "attack", "abuse"
-]
-
-harmful_output_words = [
-    "weapon", "bomb", "hack", "steal password", "credit card details", "self harm"
-]
-
-prompt_injection_phrases = [
-    "ignore previous instructions",
-    "forget your instructions",
-    "act as",
-    "jailbreak",
-    "bypass",
-    "developer mode",
-    "do anything now",
-    "dan mode",
-    "reveal your system prompt",
-    "show hidden instructions"
-]
-
-def detect_toxicity(text):
-    text_lower = text.lower()
-    for word in toxic_words:
-        if word in text_lower:
-            return True, word
-    return False, "None"
-
-def detect_pii(text):
-    email_pattern = r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+"
-    phone_pattern = r"\b[6-9]\d{9}\b"
-    aadhaar_pattern = r"\b\d{4}\s?\d{4}\s?\d{4}\b"
-
-    if re.search(email_pattern, text):
-        return True, "Email"
-    if re.search(phone_pattern, text):
-        return True, "Phone Number"
-    if re.search(aadhaar_pattern, text):
-        return True, "Aadhaar-like Number"
-    return False, "None"
-
-def detect_prompt_injection(text):
-    text_lower = text.lower()
-    for phrase in prompt_injection_phrases:
-        if phrase in text_lower:
-            return True, phrase
-    return False, "None"
-
-def detect_harmful_output(text):
-    text_lower = text.lower()
-    for word in harmful_output_words:
-        if word in text_lower:
-            return True, word
-    return False, "None"
 
 def save_log(user_input, category, reason):
     log_data = {
@@ -77,6 +27,7 @@ def save_log(user_input, category, reason):
         df.to_csv(LOG_FILE, mode="a", header=False, index=False)
     else:
         df.to_csv(LOG_FILE, index=False)
+
 
 def chatbot_response(user_input):
     user_input_lower = user_input.lower()
@@ -98,6 +49,7 @@ def chatbot_response(user_input):
 
     else:
         return f"I received your message safely: {user_input}"
+
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -127,7 +79,6 @@ if page == "Chatbot":
     if send_clicked:
         if user_input.strip() == "":
             st.warning("Please enter a message.")
-
         else:
             toxic, toxic_reason = detect_toxicity(user_input)
             pii, pii_reason = detect_pii(user_input)
