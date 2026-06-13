@@ -20,7 +20,9 @@ prompt_injection_phrases = [
     "bypass",
     "developer mode",
     "do anything now",
-    "dan mode"
+    "dan mode",
+    "reveal your system prompt",
+    "show hidden instructions"
 ]
 
 def detect_toxicity(text):
@@ -65,15 +67,35 @@ def save_log(user_input, category, reason):
     else:
         df.to_csv(LOG_FILE, index=False)
 
-st.title("🤖 AI Guardrail Chatbot")
-st.write("This chatbot checks user input using safety guardrails before accepting it.")
+def chatbot_response(user_input):
+    return f"You said: {user_input}"
 
-page = st.sidebar.radio("Navigation", ["Chatbot", "Admin Dashboard"])
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+st.title("🤖 AI Guardrail Chatbot")
+st.write("A safety-focused chatbot prototype with toxicity, PII, and prompt injection guardrails.")
+
+page = st.sidebar.radio("Navigation", ["Chatbot", "Admin Dashboard", "About Project"])
 
 if page == "Chatbot":
+    st.subheader("Chat Interface")
+
     user_input = st.text_area("Enter your message")
 
-    if st.button("Send"):
+    col1, col2 = st.columns(2)
+
+    with col1:
+        send_clicked = st.button("Send")
+
+    with col2:
+        clear_clicked = st.button("Clear Chat")
+
+    if clear_clicked:
+        st.session_state.messages = []
+        st.success("Chat cleared.")
+
+    if send_clicked:
         if user_input.strip() == "":
             st.warning("Please enter a message.")
 
@@ -95,9 +117,24 @@ if page == "Chatbot":
                 st.error(f"🚫 Message Blocked: Prompt injection attempt detected. Reason: {injection_reason}")
 
             else:
+                response = chatbot_response(user_input)
+
+                st.session_state.messages.append({
+                    "user": user_input,
+                    "bot": response
+                })
+
                 st.success("✅ Message Accepted")
-                st.write("Bot Response:")
-                st.info("This is a safe response from the chatbot. In the final version, this will connect to an LLM API.")
+
+    st.subheader("Conversation History")
+
+    if len(st.session_state.messages) == 0:
+        st.info("No conversation yet. Start by sending a safe message.")
+    else:
+        for chat in st.session_state.messages:
+            st.markdown(f"**🧑 User:** {chat['user']}")
+            st.markdown(f"**🤖 Bot:** {chat['bot']}")
+            st.divider()
 
 elif page == "Admin Dashboard":
     st.header("📊 Guardrail Logs Dashboard")
@@ -106,10 +143,42 @@ elif page == "Admin Dashboard":
         logs = pd.read_csv(LOG_FILE)
 
         st.subheader("Flagged Messages")
-        st.dataframe(logs)
+        st.dataframe(logs, use_container_width=True)
 
         st.subheader("Category Count")
         st.bar_chart(logs["Category"].value_counts())
 
+        st.subheader("Summary")
+        st.write(f"Total flagged messages: {len(logs)}")
+
+        most_common = logs["Category"].value_counts().idxmax()
+        st.write(f"Most common violation: {most_common}")
+
     else:
         st.info("No unsafe messages logged yet.")
+
+elif page == "About Project":
+    st.header("ℹ️ About This Project")
+
+    st.write("""
+    This project is an AI chatbot prototype with multi-layer safety guardrails.
+
+    The system checks user input before allowing it into the chatbot.
+
+    Current guardrails:
+    - Toxicity Detection
+    - PII Detection
+    - Prompt Injection Detection
+
+    Current outputs:
+    - Safe messages are accepted
+    - Unsafe messages are blocked
+    - Blocked messages are saved in logs
+    - Admin dashboard displays flagged message statistics
+
+    Future upgrades:
+    - LLM API integration
+    - Output guardrails
+    - Indian language / Hinglish testing
+    - Research evaluation metrics
+    """)
