@@ -12,6 +12,10 @@ toxic_words = [
     "hate", "kill", "stupid", "idiot", "dumb", "hurt", "attack", "abuse"
 ]
 
+harmful_output_words = [
+    "weapon", "bomb", "hack", "steal password", "credit card details", "self harm"
+]
+
 prompt_injection_phrases = [
     "ignore previous instructions",
     "forget your instructions",
@@ -52,6 +56,13 @@ def detect_prompt_injection(text):
             return True, phrase
     return False, "None"
 
+def detect_harmful_output(text):
+    text_lower = text.lower()
+    for word in harmful_output_words:
+        if word in text_lower:
+            return True, word
+    return False, "None"
+
 def save_log(user_input, category, reason):
     log_data = {
         "Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -68,13 +79,31 @@ def save_log(user_input, category, reason):
         df.to_csv(LOG_FILE, index=False)
 
 def chatbot_response(user_input):
-    return f"You said: {user_input}"
+    user_input_lower = user_input.lower()
+
+    if "hello" in user_input_lower or "hi" in user_input_lower:
+        return "Hello! I am a guarded AI chatbot prototype. How can I help you safely today?"
+
+    elif "what is ai" in user_input_lower:
+        return "AI stands for Artificial Intelligence. It allows machines to perform tasks that usually need human intelligence."
+
+    elif "what is guardrail" in user_input_lower:
+        return "A guardrail is a safety layer that checks user input and AI output to reduce harmful or unsafe responses."
+
+    elif "project" in user_input_lower:
+        return "This project demonstrates a multi-layer safety guardrail system for AI chatbots."
+
+    elif "weapon" in user_input_lower or "hack" in user_input_lower:
+        return "I cannot help with harmful, illegal, or unsafe activities."
+
+    else:
+        return f"I received your message safely: {user_input}"
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 st.title("🤖 AI Guardrail Chatbot")
-st.write("A safety-focused chatbot prototype with toxicity, PII, and prompt injection guardrails.")
+st.write("A safety-focused chatbot prototype with input and output guardrails.")
 
 page = st.sidebar.radio("Navigation", ["Chatbot", "Admin Dashboard", "About Project"])
 
@@ -105,26 +134,34 @@ if page == "Chatbot":
             injection, injection_reason = detect_prompt_injection(user_input)
 
             if toxic:
-                save_log(user_input, "Toxicity", toxic_reason)
-                st.error(f"🚫 Message Blocked: Toxic content detected. Reason: {toxic_reason}")
+                save_log(user_input, "Input Toxicity", toxic_reason)
+                st.error(f"🚫 Input Blocked: Toxic content detected. Reason: {toxic_reason}")
 
             elif pii:
-                save_log(user_input, "PII Detection", pii_reason)
-                st.error(f"🚫 Message Blocked: Personal information detected. Reason: {pii_reason}")
+                save_log(user_input, "Input PII Detection", pii_reason)
+                st.error(f"🚫 Input Blocked: Personal information detected. Reason: {pii_reason}")
 
             elif injection:
-                save_log(user_input, "Prompt Injection", injection_reason)
-                st.error(f"🚫 Message Blocked: Prompt injection attempt detected. Reason: {injection_reason}")
+                save_log(user_input, "Input Prompt Injection", injection_reason)
+                st.error(f"🚫 Input Blocked: Prompt injection attempt detected. Reason: {injection_reason}")
 
             else:
-                response = chatbot_response(user_input)
+                raw_response = chatbot_response(user_input)
+
+                harmful_output, output_reason = detect_harmful_output(raw_response)
+
+                if harmful_output:
+                    save_log(raw_response, "Output Guardrail", output_reason)
+                    final_response = "⚠️ The chatbot response was blocked by the output guardrail because it may contain unsafe content."
+                else:
+                    final_response = raw_response
 
                 st.session_state.messages.append({
                     "user": user_input,
-                    "bot": response
+                    "bot": final_response
                 })
 
-                st.success("✅ Message Accepted")
+                st.success("✅ Input Passed Guardrails")
 
     st.subheader("Conversation History")
 
@@ -163,22 +200,25 @@ elif page == "About Project":
     st.write("""
     This project is an AI chatbot prototype with multi-layer safety guardrails.
 
-    The system checks user input before allowing it into the chatbot.
+    The system checks user input before allowing it into the chatbot and also checks the chatbot's response before showing it to the user.
 
     Current guardrails:
-    - Toxicity Detection
-    - PII Detection
-    - Prompt Injection Detection
+    - Input Toxicity Detection
+    - Input PII Detection
+    - Input Prompt Injection Detection
+    - Output Harmful Content Detection
 
     Current outputs:
     - Safe messages are accepted
-    - Unsafe messages are blocked
+    - Unsafe inputs are blocked
+    - Unsafe outputs are blocked
     - Blocked messages are saved in logs
     - Admin dashboard displays flagged message statistics
 
     Future upgrades:
     - LLM API integration
-    - Output guardrails
+    - HuggingFace toxicity model
+    - Microsoft Presidio PII detection
     - Indian language / Hinglish testing
     - Research evaluation metrics
     """)
