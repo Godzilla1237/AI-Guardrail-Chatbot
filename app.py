@@ -7,6 +7,7 @@ from guardrails.toxicity import detect_toxicity
 from guardrails.pii import detect_pii
 from guardrails.prompt_injection import detect_prompt_injection
 from guardrails.output_guardrail import detect_harmful_output
+from guardrails.metrics import metrics
 
 st.set_page_config(page_title="AI Guardrail Chatbot", layout="centered")
 
@@ -54,10 +55,14 @@ def chatbot_response(user_input):
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+if "metrics" not in st.session_state:
+    st.session_state.metrics = metrics.copy()
+
 st.title("🤖 AI Guardrail Chatbot")
 st.write("A safety-focused chatbot prototype with input and output guardrails.")
 
 page = st.sidebar.radio("Navigation", ["Chatbot", "Admin Dashboard", "About Project"])
+
 
 if page == "Chatbot":
     st.subheader("Chat Interface")
@@ -79,20 +84,24 @@ if page == "Chatbot":
     if send_clicked:
         if user_input.strip() == "":
             st.warning("Please enter a message.")
+
         else:
             toxic, toxic_reason = detect_toxicity(user_input)
             pii, pii_reason = detect_pii(user_input)
             injection, injection_reason = detect_prompt_injection(user_input)
 
             if toxic:
+                st.session_state.metrics["blocked_toxicity"] += 1
                 save_log(user_input, "Input Toxicity", toxic_reason)
                 st.error(f"🚫 Input Blocked: Toxic content detected. Reason: {toxic_reason}")
 
             elif pii:
+                st.session_state.metrics["blocked_pii"] += 1
                 save_log(user_input, "Input PII Detection", pii_reason)
                 st.error(f"🚫 Input Blocked: Personal information detected. Reason: {pii_reason}")
 
             elif injection:
+                st.session_state.metrics["blocked_injection"] += 1
                 save_log(user_input, "Input Prompt Injection", injection_reason)
                 st.error(f"🚫 Input Blocked: Prompt injection attempt detected. Reason: {injection_reason}")
 
@@ -102,9 +111,12 @@ if page == "Chatbot":
                 harmful_output, output_reason = detect_harmful_output(raw_response)
 
                 if harmful_output:
+                    st.session_state.metrics["blocked_output"] += 1
                     save_log(raw_response, "Output Guardrail", output_reason)
                     final_response = "⚠️ The chatbot response was blocked by the output guardrail because it may contain unsafe content."
+
                 else:
+                    st.session_state.metrics["safe_messages"] += 1
                     final_response = raw_response
 
                 st.session_state.messages.append({
@@ -124,8 +136,24 @@ if page == "Chatbot":
             st.markdown(f"**🤖 Bot:** {chat['bot']}")
             st.divider()
 
+
 elif page == "Admin Dashboard":
     st.header("📊 Guardrail Logs Dashboard")
+
+    st.subheader("Live Evaluation Metrics")
+
+    col1, col2, col3 = st.columns(3)
+
+    col1.metric("Safe Messages", st.session_state.metrics["safe_messages"])
+    col2.metric("Toxicity Blocks", st.session_state.metrics["blocked_toxicity"])
+    col3.metric("PII Blocks", st.session_state.metrics["blocked_pii"])
+
+    col4, col5 = st.columns(2)
+
+    col4.metric("Prompt Injection Blocks", st.session_state.metrics["blocked_injection"])
+    col5.metric("Output Blocks", st.session_state.metrics["blocked_output"])
+
+    st.divider()
 
     if os.path.exists(LOG_FILE):
         logs = pd.read_csv(LOG_FILE)
@@ -144,6 +172,7 @@ elif page == "Admin Dashboard":
 
     else:
         st.info("No unsafe messages logged yet.")
+
 
 elif page == "About Project":
     st.header("ℹ️ About This Project")
@@ -165,11 +194,12 @@ elif page == "About Project":
     - Unsafe outputs are blocked
     - Blocked messages are saved in logs
     - Admin dashboard displays flagged message statistics
+    - Live evaluation metrics are displayed
 
     Future upgrades:
     - LLM API integration
     - HuggingFace toxicity model
     - Microsoft Presidio PII detection
     - Indian language / Hinglish testing
-    - Research evaluation metrics
+    - Accuracy, precision, recall and false positive evaluation
     """)
