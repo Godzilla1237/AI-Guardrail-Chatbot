@@ -2,3 +2,6 @@ streamlit
 pandas
 matplotlib
 ollama
+detoxify
+torch
+sentencepiece

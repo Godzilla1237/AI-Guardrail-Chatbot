@@ -4,7 +4,6 @@ import pandas as pd
 import os
 from ollama import chat
 
-from guardrails.toxicity import detect_toxicity
 from guardrails.pii import detect_pii
 from guardrails.prompt_injection import detect_prompt_injection
 from guardrails.output_guardrail import detect_harmful_output
@@ -13,6 +12,7 @@ from guardrails.performance import start_timer, end_timer
 from guardrails.test_dataset import test_prompts
 from guardrails.evaluator import evaluate_prompt
 from guardrails.report_generator import generate_report
+from guardrails.ai_toxicity import detect_ai_toxicity
 
 st.set_page_config(page_title="AI Guardrail Chatbot", layout="centered")
 
@@ -85,7 +85,7 @@ if "metrics" not in st.session_state:
     st.session_state.metrics = metrics.copy()
 
 st.title("🤖 AI Guardrail Chatbot")
-st.write("A safety-focused chatbot prototype using local Llama 3.2 with input and output guardrails.")
+st.write("A safety-focused chatbot prototype using local Llama 3.2 with ML-based toxicity detection and guardrails.")
 
 page = st.sidebar.radio(
     "Navigation",
@@ -121,14 +121,22 @@ if page == "Chatbot":
             st.warning("Please enter a message.")
 
         else:
-            toxic, toxic_reason = detect_toxicity(user_input)
-            pii, pii_reason = detect_pii(user_input)
-            injection, injection_reason = detect_prompt_injection(user_input)
+            with st.spinner("Running input guardrails..."):
+                toxic, toxic_reason, toxicity_score = detect_ai_toxicity(user_input)
+                pii, pii_reason = detect_pii(user_input)
+                injection, injection_reason = detect_prompt_injection(user_input)
 
             if toxic:
                 st.session_state.metrics["blocked_toxicity"] += 1
-                save_log(user_input, "Input Toxicity", toxic_reason)
-                st.error(f"🚫 Input Blocked: Toxic content detected. Reason: {toxic_reason}")
+                save_log(
+                    user_input,
+                    "Input Toxicity",
+                    f"{toxic_reason} score={toxicity_score:.2f}"
+                )
+                st.error(
+                    f"🚫 Input Blocked: Toxic content detected. "
+                    f"Category: {toxic_reason}, Score: {toxicity_score:.2f}"
+                )
 
             elif pii:
                 st.session_state.metrics["blocked_pii"] += 1
@@ -164,6 +172,7 @@ if page == "Chatbot":
                 })
 
                 st.success("✅ Input Passed Guardrails")
+                st.caption(f"Toxicity Score: {toxicity_score:.2f}")
 
     st.subheader("Conversation History")
 
@@ -313,7 +322,7 @@ elif page == "About Project":
     User Input → Input Guardrails → Local Llama 3.2 Model → Output Guardrail → User Response
 
     Current guardrails:
-    - Input Toxicity Detection
+    - ML-based Toxicity Detection using Detoxify
     - Input PII Detection
     - Input Prompt Injection Detection
     - Output Harmful Content Detection
@@ -330,7 +339,6 @@ elif page == "About Project":
     - Downloadable guardrail report is generated
 
     Future upgrades:
-    - HuggingFace toxicity model
     - Microsoft Presidio PII detection
     - Indian language / Hinglish testing
     - Accuracy, precision, recall and false positive evaluation
