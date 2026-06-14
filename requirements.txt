@@ -5,3 +5,5 @@ ollama
 detoxify
 torch
 sentencepiece
+presidio-analyzer
+spacy

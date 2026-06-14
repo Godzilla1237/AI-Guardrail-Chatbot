@@ -9,3 +9,8 @@ Time,User Input,Category,Reason
 2026-06-14 05:01:39,My phone number is 9876543210,Input PII Detection,Phone Number
 2026-06-14 05:08:16,"hate
 ",Input Toxicity,hate
+2026-06-14 06:13:44,"My email is abc@gmail.com
+",Input PII Detection,EMAIL_ADDRESS score=1.0
+2026-06-14 06:13:52,My name is Darshan and my phone number is 9876543210,Input PII Detection,UK_NHS score=1.0
+2026-06-14 06:14:07,My card number is 4111111111111111,Input PII Detection,CREDIT_CARD score=1.0
+2026-06-14 06:14:16,My address is Bengaluru,Input PII Detection,LOCATION score=0.85
