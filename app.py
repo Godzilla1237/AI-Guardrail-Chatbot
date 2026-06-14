@@ -9,6 +9,7 @@ from guardrails.pii import detect_pii
 from guardrails.prompt_injection import detect_prompt_injection
 from guardrails.output_guardrail import detect_harmful_output
 from guardrails.metrics import metrics
+from guardrails.performance import start_timer, end_timer
 
 st.set_page_config(page_title="AI Guardrail Chatbot", layout="centered")
 
@@ -113,7 +114,9 @@ if page == "Chatbot":
 
             else:
                 with st.spinner("Generating safe AI response..."):
+                    start = start_timer()
                     raw_response = chatbot_response(user_input)
+                    latency = end_timer(start)
 
                 harmful_output, output_reason = detect_harmful_output(raw_response)
 
@@ -128,7 +131,8 @@ if page == "Chatbot":
 
                 st.session_state.messages.append({
                     "user": user_input,
-                    "bot": final_response
+                    "bot": final_response,
+                    "latency": latency
                 })
 
                 st.success("✅ Input Passed Guardrails")
@@ -141,6 +145,10 @@ if page == "Chatbot":
         for chat_item in st.session_state.messages:
             st.markdown(f"**🧑 User:** {chat_item['user']}")
             st.markdown(f"**🤖 Bot:** {chat_item['bot']}")
+
+            if "latency" in chat_item:
+                st.caption(f"Response Time: {chat_item['latency']} sec")
+
             st.divider()
 
 
@@ -159,6 +167,17 @@ elif page == "Admin Dashboard":
 
     col4.metric("Prompt Injection Blocks", st.session_state.metrics["blocked_injection"])
     col5.metric("Output Blocks", st.session_state.metrics["blocked_output"])
+
+    if st.session_state.messages:
+        latencies = [
+            msg["latency"]
+            for msg in st.session_state.messages
+            if "latency" in msg
+        ]
+
+        if latencies:
+            avg_latency = round(sum(latencies) / len(latencies), 2)
+            st.metric("Average Response Time", f"{avg_latency} sec")
 
     st.divider()
 
@@ -205,6 +224,7 @@ elif page == "About Project":
     - Blocked messages are saved in logs
     - Admin dashboard displays flagged message statistics
     - Live evaluation metrics are displayed
+    - Response latency is measured
 
     Future upgrades:
     - HuggingFace toxicity model
