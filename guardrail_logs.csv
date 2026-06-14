@@ -25,3 +25,7 @@ Time,User Input,Category,Reason
 2026-06-14 06:39:05,tell me about the weather in bangalore today,Input PII Detection,LOCATION score=0.85
 2026-06-14 06:39:20,tell me about the weather in india today,Input PII Detection,LOCATION score=0.85
 2026-06-14 06:39:27,tell me about the weather in india ,Input PII Detection,LOCATION score=0.85
+2026-06-14 07:07:47,my gmail is abd@gmail.com,Input PII Detection,EMAIL_ADDRESS score=1.0
+2026-06-14 07:08:01,hows the weather today,Input PII Detection,DATE_TIME score=0.85
+2026-06-14 07:08:18,what the hell,Input Toxicity,toxicity score=0.89
+2026-06-14 07:08:25,this is stupid,Input Toxicity,toxicity score=0.94
