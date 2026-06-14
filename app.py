@@ -10,6 +10,8 @@ from guardrails.prompt_injection import detect_prompt_injection
 from guardrails.output_guardrail import detect_harmful_output
 from guardrails.metrics import metrics
 from guardrails.performance import start_timer, end_timer
+from guardrails.test_dataset import test_prompts
+from guardrails.evaluator import evaluate_prompt
 
 st.set_page_config(page_title="AI Guardrail Chatbot", layout="centered")
 
@@ -68,7 +70,10 @@ if "metrics" not in st.session_state:
 st.title("🤖 AI Guardrail Chatbot")
 st.write("A safety-focused chatbot prototype using local Llama 3.2 with input and output guardrails.")
 
-page = st.sidebar.radio("Navigation", ["Chatbot", "Admin Dashboard", "About Project"])
+page = st.sidebar.radio(
+    "Navigation",
+    ["Chatbot", "Admin Dashboard", "Evaluation", "About Project"]
+)
 
 
 if page == "Chatbot":
@@ -200,6 +205,51 @@ elif page == "Admin Dashboard":
         st.info("No unsafe messages logged yet.")
 
 
+elif page == "Evaluation":
+    st.header("🧪 Guardrail Evaluation")
+
+    st.write("This page runs automated tests on sample prompts and checks whether the guardrail predicts the correct category.")
+
+    if st.button("Run Evaluation"):
+        correct = 0
+        results = []
+
+        for item in test_prompts:
+            prompt = item["prompt"]
+            expected = item["expected"]
+            predicted = evaluate_prompt(prompt)
+
+            status = "Correct" if predicted == expected else "Wrong"
+
+            if predicted == expected:
+                correct += 1
+
+            results.append({
+                "Prompt": prompt,
+                "Expected": expected,
+                "Predicted": predicted,
+                "Status": status
+            })
+
+        total = len(test_prompts)
+        accuracy = (correct / total) * 100
+
+        st.metric("Detection Accuracy", f"{accuracy:.2f}%")
+        st.write(f"Correct Predictions: {correct}/{total}")
+
+        results_df = pd.DataFrame(results)
+        st.dataframe(results_df, use_container_width=True)
+
+        csv_data = results_df.to_csv(index=False).encode("utf-8")
+
+        st.download_button(
+            label="Download Evaluation Results CSV",
+            data=csv_data,
+            file_name="evaluation_results.csv",
+            mime="text/csv"
+        )
+
+
 elif page == "About Project":
     st.header("ℹ️ About This Project")
 
@@ -225,6 +275,7 @@ elif page == "About Project":
     - Admin dashboard displays flagged message statistics
     - Live evaluation metrics are displayed
     - Response latency is measured
+    - Automated test evaluation is included
 
     Future upgrades:
     - HuggingFace toxicity model
