@@ -12,6 +12,7 @@ from guardrails.metrics import metrics
 from guardrails.performance import start_timer, end_timer
 from guardrails.test_dataset import test_prompts
 from guardrails.evaluator import evaluate_prompt
+from guardrails.report_generator import generate_report
 
 st.set_page_config(page_title="AI Guardrail Chatbot", layout="centered")
 
@@ -61,6 +62,22 @@ def chatbot_response(user_input):
         return f"Model Error: {str(e)}"
 
 
+def get_average_latency():
+    if "messages" not in st.session_state:
+        return 0
+
+    latencies = [
+        msg["latency"]
+        for msg in st.session_state.messages
+        if "latency" in msg
+    ]
+
+    if not latencies:
+        return 0
+
+    return round(sum(latencies) / len(latencies), 2)
+
+
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -72,7 +89,13 @@ st.write("A safety-focused chatbot prototype using local Llama 3.2 with input an
 
 page = st.sidebar.radio(
     "Navigation",
-    ["Chatbot", "Admin Dashboard", "Evaluation", "About Project"]
+    [
+        "Chatbot",
+        "Admin Dashboard",
+        "Evaluation",
+        "Report Generator",
+        "About Project"
+    ]
 )
 
 
@@ -173,16 +196,9 @@ elif page == "Admin Dashboard":
     col4.metric("Prompt Injection Blocks", st.session_state.metrics["blocked_injection"])
     col5.metric("Output Blocks", st.session_state.metrics["blocked_output"])
 
-    if st.session_state.messages:
-        latencies = [
-            msg["latency"]
-            for msg in st.session_state.messages
-            if "latency" in msg
-        ]
+    avg_latency = get_average_latency()
 
-        if latencies:
-            avg_latency = round(sum(latencies) / len(latencies), 2)
-            st.metric("Average Response Time", f"{avg_latency} sec")
+    st.metric("Average Response Time", f"{avg_latency} sec")
 
     st.divider()
 
@@ -250,6 +266,41 @@ elif page == "Evaluation":
         )
 
 
+elif page == "Report Generator":
+    st.header("📄 Guardrail Report Generator")
+
+    st.write("Generate a downloadable report of current guardrail performance metrics.")
+
+    avg_latency = get_average_latency()
+
+    report_df = generate_report(
+        st.session_state.metrics,
+        avg_latency
+    )
+
+    st.subheader("Current Report")
+
+    st.dataframe(report_df, use_container_width=True)
+
+    csv_report = report_df.to_csv(index=False).encode("utf-8")
+
+    st.download_button(
+        label="Download Guardrail Report CSV",
+        data=csv_report,
+        file_name="guardrail_report.csv",
+        mime="text/csv"
+    )
+
+    st.subheader("Report Summary")
+
+    st.write(f"Safe Messages: {st.session_state.metrics['safe_messages']}")
+    st.write(f"Toxicity Blocks: {st.session_state.metrics['blocked_toxicity']}")
+    st.write(f"PII Blocks: {st.session_state.metrics['blocked_pii']}")
+    st.write(f"Prompt Injection Blocks: {st.session_state.metrics['blocked_injection']}")
+    st.write(f"Output Blocks: {st.session_state.metrics['blocked_output']}")
+    st.write(f"Average Response Time: {avg_latency} sec")
+
+
 elif page == "About Project":
     st.header("ℹ️ About This Project")
 
@@ -276,6 +327,7 @@ elif page == "About Project":
     - Live evaluation metrics are displayed
     - Response latency is measured
     - Automated test evaluation is included
+    - Downloadable guardrail report is generated
 
     Future upgrades:
     - HuggingFace toxicity model
