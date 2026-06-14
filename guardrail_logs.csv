@@ -22,3 +22,6 @@ Time,User Input,Category,Reason
 2026-06-14 06:18:24,"ai kya hai?
 
 ",Input PII Detection,PERSON score=0.85
+2026-06-14 06:39:05,tell me about the weather in bangalore today,Input PII Detection,LOCATION score=0.85
+2026-06-14 06:39:20,tell me about the weather in india today,Input PII Detection,LOCATION score=0.85
+2026-06-14 06:39:27,tell me about the weather in india ,Input PII Detection,LOCATION score=0.85
