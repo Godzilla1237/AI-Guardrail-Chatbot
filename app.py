@@ -2,6 +2,7 @@ import streamlit as st
 from datetime import datetime
 import pandas as pd
 import os
+from ollama import chat
 
 from guardrails.toxicity import detect_toxicity
 from guardrails.pii import detect_pii
@@ -31,25 +32,30 @@ def save_log(user_input, category, reason):
 
 
 def chatbot_response(user_input):
-    user_input_lower = user_input.lower()
+    try:
+        response = chat(
+            model="llama3.2",
+            messages=[
+                {
+                    "role": "system",
+                    "content": """
+                    You are a helpful AI assistant.
+                    Give safe, simple, educational answers.
+                    Do not provide harmful, illegal, or unsafe instructions.
+                    Keep responses short and clear.
+                    """
+                },
+                {
+                    "role": "user",
+                    "content": user_input
+                }
+            ]
+        )
 
-    if "hello" in user_input_lower or "hi" in user_input_lower:
-        return "Hello! I am a guarded AI chatbot prototype. How can I help you safely today?"
+        return response["message"]["content"]
 
-    elif "what is ai" in user_input_lower:
-        return "AI stands for Artificial Intelligence. It allows machines to perform tasks that usually need human intelligence."
-
-    elif "what is guardrail" in user_input_lower:
-        return "A guardrail is a safety layer that checks user input and AI output to reduce harmful or unsafe responses."
-
-    elif "project" in user_input_lower:
-        return "This project demonstrates a multi-layer safety guardrail system for AI chatbots."
-
-    elif "weapon" in user_input_lower or "hack" in user_input_lower:
-        return "I cannot help with harmful, illegal, or unsafe activities."
-
-    else:
-        return f"I received your message safely: {user_input}"
+    except Exception as e:
+        return f"Model Error: {str(e)}"
 
 
 if "messages" not in st.session_state:
@@ -59,7 +65,7 @@ if "metrics" not in st.session_state:
     st.session_state.metrics = metrics.copy()
 
 st.title("🤖 AI Guardrail Chatbot")
-st.write("A safety-focused chatbot prototype with input and output guardrails.")
+st.write("A safety-focused chatbot prototype using local Llama 3.2 with input and output guardrails.")
 
 page = st.sidebar.radio("Navigation", ["Chatbot", "Admin Dashboard", "About Project"])
 
@@ -106,7 +112,8 @@ if page == "Chatbot":
                 st.error(f"🚫 Input Blocked: Prompt injection attempt detected. Reason: {injection_reason}")
 
             else:
-                raw_response = chatbot_response(user_input)
+                with st.spinner("Generating safe AI response..."):
+                    raw_response = chatbot_response(user_input)
 
                 harmful_output, output_reason = detect_harmful_output(raw_response)
 
@@ -131,9 +138,9 @@ if page == "Chatbot":
     if len(st.session_state.messages) == 0:
         st.info("No conversation yet. Start by sending a safe message.")
     else:
-        for chat in st.session_state.messages:
-            st.markdown(f"**🧑 User:** {chat['user']}")
-            st.markdown(f"**🤖 Bot:** {chat['bot']}")
+        for chat_item in st.session_state.messages:
+            st.markdown(f"**🧑 User:** {chat_item['user']}")
+            st.markdown(f"**🤖 Bot:** {chat_item['bot']}")
             st.divider()
 
 
@@ -180,7 +187,10 @@ elif page == "About Project":
     st.write("""
     This project is an AI chatbot prototype with multi-layer safety guardrails.
 
-    The system checks user input before allowing it into the chatbot and also checks the chatbot's response before showing it to the user.
+    The system checks user input before sending it to a local LLM and also checks the model's response before showing it to the user.
+
+    Current architecture:
+    User Input → Input Guardrails → Local Llama 3.2 Model → Output Guardrail → User Response
 
     Current guardrails:
     - Input Toxicity Detection
@@ -197,9 +207,9 @@ elif page == "About Project":
     - Live evaluation metrics are displayed
 
     Future upgrades:
-    - LLM API integration
     - HuggingFace toxicity model
     - Microsoft Presidio PII detection
     - Indian language / Hinglish testing
     - Accuracy, precision, recall and false positive evaluation
+    - Research paper-style experiment results
     """)
